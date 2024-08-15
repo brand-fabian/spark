@@ -7,7 +7,9 @@ function usage {
   echo -e "Options:"
   echo -e "\t-i,--install-hail\tInstall hail in the context"
   echo -e "\t-s,--script\t\tExecutable to run within the new context (default: /bin/bash)"
+  echo -e "\t-X, --no-use-srun\tIf this flag is set, the script will be launched alongside the main spark task, otherwise srun is used to start it."
   echo -e "\t--conda-env\t\tConda environment name to install hail into, if applicable."
+  echo -e "\t--conda-module\t\tConda easybuild module name (default: Miniconda3)."
   echo -e "\t--spark-module\t\tName of the spark lmod module to use."
   echo -e "\t--spark-version\t\tSpark version to use to create the cluster (default: auto-detect)."
   echo -e "\t--hail-version\t\tHail version to install (default: main)."
@@ -18,7 +20,7 @@ function usage {
   echo -e "\t-h,--help\t\tPrint this help message"
 }
 
-options=$(getopt -o ihs: --long "install-hail help script: conda-env: hail-version: spark-module: spark-version: spark-interface: ipoib-domain: master-cores: scratch-dir:" -- "$@")
+options=$(getopt -o ihXs: --long "install-hail help no-use-srun script: conda-env: conda-module: hail-version: spark-module: spark-version: spark-interface: ipoib-domain: master-cores: scratch-dir:" -- "$@")
 [ $? -eq 0 ] || {
   usage
   echo "Invalid options provided"
@@ -30,6 +32,7 @@ export SCRIPT_DIR=/home/brand/scratch/misc/spark
 export INSTALL_HAIL=1
 export SCRIPT="/bin/bash"
 export CONDA_ENV="spark"
+export CONDA_MODULE="Miniconda3"
 export HAIL_VERSION="main"
 export MASTER_RESERVED_CORES=1
 export SPARK_MODULE="Spark"
@@ -37,12 +40,16 @@ export SPARK_VERSION=""
 export SPARK_INTERFACE="ib0"
 export IPOIB_DOMAIN=""
 export SCRATCH_ROOT="$DEFAULT_SCRATCH_ROOT"
+export USE_SRUN=0
 
 eval set -- "$options"
 while true; do
   case "$1" in
     -i | --install-hail)
       INSTALL_HAIL=0
+      ;;
+    -X | --no-use-srun)
+      USE_SRUN=1
       ;;
     -s | --script)
       shift
@@ -51,6 +58,10 @@ while true; do
     --conda-env)
       shift
       CONDA_ENV="xcat_spark"
+      ;;
+    --conda-module)
+      shift
+      CONDA_MODULE="$1"
       ;;
     --hail-version)
       shift

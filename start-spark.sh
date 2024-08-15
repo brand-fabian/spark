@@ -6,6 +6,7 @@ export base_dir="${SCRATCH_ROOT}/spark"
 export spark_home="${SCRATCH_ROOT}/spark/${SLURM_JOBID}"
 export HAIL_BASE="${SCRATCH_ROOT}/hail/$SLURM_JOBID"
 
+module load "$CONDA_MODULE"
 conda activate --no-stack "$CONDA_ENV"
 
 # Install s3 connector jars
@@ -85,10 +86,14 @@ else
     fi
 
     trap clean EXIT
-    eval "$SCRIPT"
-    # After finishing force the job to exit
-    sleep 30
-    scancel "$SLURM_JOB_ID"
+    if [ $USE_SRUN -eq 0 ]; then
+      srun --export=ALL "$SCRIPT"
+    else
+      eval "$SCRIPT"
+      # After finishing force the job to exit
+      sleep 30
+      scancel "$SLURM_JOB_ID"
+    fi
   else
     export SPARK_MASTER_IP=$(scontrol show hostname $SLURM_NODELIST | head -n 1)
     if [ -z "$IPOIB_DOMAIN" ]; then
