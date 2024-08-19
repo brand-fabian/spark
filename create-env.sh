@@ -42,11 +42,13 @@ else
 fi
 
 module load "$CONDA_MODULE"
+test -n "$CONDA_INIT" && eval "$CONDA_INIT"
+
 if `conda info --envs | grep -qP "^$CONDA_ENV" >/dev/null`; then
   echo "Environment $CONDA_ENV already installed. Skipping."
 else
   echo "Creating environment $CONDA_ENV"
-  conda create -y -n "$CONDA_ENV" \
+  conda create -c conda-forge -c bioconda -c defaults -y -n "$CONDA_ENV" \
     liblapack \
     lapack \
     lapackpp \
@@ -60,16 +62,14 @@ else
     pip \
     "jinja2==3.0.3" \
     "openjdk>=$JAVA_MIN_VERSION,<$JAVA_MAX_VERSION" \
-    rust
+    rust \
+    uv
 
   conda activate "$CONDA_ENV"
-  pip3 install jupyterlab "pyspark==$SPARK_VERSION"
+  pip3 install jupyterlab "pyspark==$SPARK_VERSION" build
   conda deactivate
 fi
 
 module use /software/easybuild/modules/all
-module load toolchain/foss/2021b \
-  lib/lz4 \
-  lang/Rust \
-  $CONDA_MODULE \
+module load $CONDA_MODULE \
   $SPARK_MODULE

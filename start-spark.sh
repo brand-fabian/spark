@@ -7,7 +7,9 @@ export spark_home="${SCRATCH_ROOT}/spark/${SLURM_JOBID}"
 export HAIL_BASE="${SCRATCH_ROOT}/hail/$SLURM_JOBID"
 
 module load "$CONDA_MODULE"
+test -n "$CONDA_INIT" && eval "$CONDA_INIT"
 conda activate --no-stack "$CONDA_ENV"
+
 
 # Install s3 connector jars
 source "${SCRIPT_DIR}/install-s3-connector.sh"
@@ -15,6 +17,12 @@ source "${SCRIPT_DIR}/install-s3-connector.sh"
 function clean {
   rm -rf "${spark_home}"
   rm -rf "${HAIL_BASE}"
+}
+
+function stop {
+  # $1 - PID to stop
+  echo -e "handling stop signal for spark cluster"
+  test -n "$1" && kill -9 "$1"
 }
 
 # Retrieve the correct interface number, in case we are
@@ -75,31 +83,38 @@ else
       --ip  "$SPARK_MASTER_IP" \
       --port "$SPARK_MASTER_PORT" \
       --webui-port "$SPARK_MASTER_WEBUI_PORT" &
-    
+    export MASTER_PROC_ID="$!"
+
     echo "Running spark-worker on $(hostname) to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
     export SPARK_WORKER_CORES=$(( $SPARK_WORKER_CORES - $MASTER_RESERVED_CORES ))
     "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker "spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT" &
+    export WORKER_PROC_ID="$!"
 
     if [ $INSTALL_HAIL -eq 0 ]; then
       echo "Installing hail on top of spark cluster"
       source $SCRIPT_DIR/install-hail.sh
     fi
 
-    trap clean EXIT
+    trap "clean" EXIT
+    trap "sleep 10 && stop $WORKER_PROC_ID && sleep 1 && stop $MASTER_PROC_ID" SIGUSR1
     if [ $USE_SRUN -eq 0 ]; then
       srun --export=ALL "$SCRIPT"
     else
       eval "$SCRIPT"
-      # After finishing force the job to exit
-      sleep 30
-      scancel "$SLURM_JOB_ID"
     fi
-  else
+    # After finishing force the job to exit
+    sleep 30
+    echo -e "job finished, cleaning up spark cluster."
+    scancel --signal=USR1 $SLURM_JOB_ID
+    sleep 30
+    scancel --signal=USR1 --batch $SLURM_JOB_ID
+    echo -e "finished cleaning up child jobs."
+else
     export SPARK_MASTER_IP=$(scontrol show hostname $SLURM_NODELIST | head -n 1)
     if [ -z "$IPOIB_DOMAIN" ]; then
-      export SPARK_MASTER_IP=${MASTER_NODE/eth/ib}
+      export SPARK_MASTER_IP=${SPARK_MASTER_IP/eth/ib}
     else
-      export SPARK_MASTER_IP="${MASTER_NODE}.${IPOIB_DOMAIN}"
+      export SPARK_MASTER_IP="${SPARK_MASTER_IP}.${IPOIB_DOMAIN}"
     fi
 
     export CURRENT_WORKER=$(hostname)
@@ -111,6 +126,9 @@ else
 
     echo "Running spark-worker on ${CURRENT_WORKER} to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
     MASTER_NODE="spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT"
-    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -h ${CURRENT_WORKER} $MASTER_NODE
+    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -h ${CURRENT_WORKER} $MASTER_NODE &
+    export WORKER_PROC_ID="$!"
+    trap "stop $WORKER_PROC_ID" SIGUSR1
+    wait
   fi
 fi
