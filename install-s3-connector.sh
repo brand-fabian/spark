@@ -32,7 +32,6 @@ aws_java_sdk_version=$(curl -isSL https://hadoop.apache.org/docs/r$hadoop_versio
     | cut -d'>' -f2 \
     | cut -d'<' -f1)
 
-
 if [ ! -e "${spark_home}/jars/hadoop-aws-$hadoop_version.jar" ]; then
     curl -sSL \
         "https://search.maven.org/remotecontent?filepath=org/apache/hadoop/hadoop-aws/$hadoop_version/hadoop-aws-$hadoop_version.jar" \

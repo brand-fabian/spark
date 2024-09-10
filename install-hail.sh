@@ -15,4 +15,3 @@ cd "${HAIL_BASE}/hail"
 make clean
 make install-on-cluster HAIL_COMPILE_NATIVES=1 SCALA_VERSION=2.12.13 SPARK_VERSION=$SPARK_VERSION
 cd -
-

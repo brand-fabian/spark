@@ -12,7 +12,9 @@ conda activate --no-stack "$CONDA_ENV"
 
 
 # Install s3 connector jars
-source "${SCRIPT_DIR}/install-s3-connector.sh"
+if [ $INSTALL_S3_CONNECTOR -eq 0 ]; then
+  source "${SCRIPT_DIR}/install-s3-connector.sh"
+fi
 
 function clean {
   rm -rf "${spark_home}"
@@ -71,10 +73,12 @@ else
   if [ "$SLURM_PROCID" -eq 0 ]; then
     MASTER_NODE=$(scontrol show hostname $SLURM_NODELIST | head -n 1)
     if [ -z "$IPOIB_DOMAIN" ]; then
-      export SPARK_MASTER_IP=${MASTER_NODE/eth/ib}
+      export SPARK_MASTER_HOSTNAME=${MASTER_NODE/eth/ib}
     else
-      export SPARK_MASTER_IP="${MASTER_NODE}.${IPOIB_DOMAIN}"
+      export SPARK_MASTER_HOSTNAME="${MASTER_NODE}.${IPOIB_DOMAIN}"
     fi
+    export SPARK_MASTER_IP="$(dig +short +search $SPARK_MASTER_HOSTNAME)"
+    export SPARK_LOCAL_IP="$SPARK_MASTER_IP"
     export PYSPARK_SUBMIT_ARGS="--master spark://${SPARK_MASTER_IP}:${SPARK_MASTER_PORT} pyspark-shell"
 
     echo "spark://${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}" > "$spark_home/${SLURM_JOB_ID}_spark_master"
@@ -86,8 +90,14 @@ else
     export MASTER_PROC_ID="$!"
 
     echo "Running spark-worker on $(hostname) to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
+    # Reduce memory and cpu ressource usage of the worker colocated with the master
     export SPARK_WORKER_CORES=$(( $SPARK_WORKER_CORES - $MASTER_RESERVED_CORES ))
-    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker "spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT" &
+    if [ -n "$SLURM_MEM_PER_CPU" ]; then
+      export SPARK_DAEMON_MEMORY=$(( $SLURM_MEM_PER_CPU * $SLURM_CPUS_PER_TASK - $MASTER_RESERVED_MEMORY ))m
+    else
+      export SPARK_DAEMON_MEMORY=$(( $SLURM_MEM_PER_NODE - $MASTER_RESERVED_MEMORY ))m
+    fi
+    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -h "$SPARK_MASTER_IP" "spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT" &
     export WORKER_PROC_ID="$!"
 
     if [ $INSTALL_HAIL -eq 0 ]; then
@@ -97,8 +107,10 @@ else
 
     trap "clean" EXIT
     trap "sleep 10 && stop $WORKER_PROC_ID && sleep 1 && stop $MASTER_PROC_ID" SIGUSR1
+
+    sleep 10
     if [ $USE_SRUN -eq 0 ]; then
-      srun --export=ALL "$SCRIPT"
+      srun --overlap --export=ALL "$SCRIPT"
     else
       eval "$SCRIPT"
     fi
@@ -112,21 +124,24 @@ else
 else
     export SPARK_MASTER_IP=$(scontrol show hostname $SLURM_NODELIST | head -n 1)
     if [ -z "$IPOIB_DOMAIN" ]; then
-      export SPARK_MASTER_IP=${SPARK_MASTER_IP/eth/ib}
+      export SPARK_MASTER_HOSTNAME=${SPARK_MASTER_IP/eth/ib}
     else
-      export SPARK_MASTER_IP="${SPARK_MASTER_IP}.${IPOIB_DOMAIN}"
+      export SPARK_MASTER_HOSTNAME="${SPARK_MASTER_IP}.${IPOIB_DOMAIN}"
     fi
+    export SPARK_MASTER_IP="$(dig +short +search $SPARK_MASTER_HOSTNAME)"
 
-    export CURRENT_WORKER=$(hostname)
+    export CURRENT_WORKER_HOSTNAME=$(hostname)
         if [ -z "$IPOIB_DOMAIN" ]; then
-      export CURRENT_WORKER=${CURRENT_WORKER/eth/ib}
+      export CURRENT_WORKER_HOSTNAME=${CURRENT_WORKER_HOSTNAME/eth/ib}
     else
-      export CURRENT_WORKER="${CURRENT_WORKER}.${IPOIB_DOMAIN}"
+      export CURRENT_WORKER_HOSTNAME="${CURRENT_WORKER_HOSTNAME}.${IPOIB_DOMAIN}"
     fi
+    export CURRENT_WORKER_IP="$(dig +short +search $CURRENT_WORKER_HOSTNAME)"
+    export SPARK_LOCAL_IP="$CURRENT_WORKER_IP"
 
-    echo "Running spark-worker on ${CURRENT_WORKER} to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
+    echo "Running spark-worker on ${CURRENT_WORKER_HOSTNAME} to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
     MASTER_NODE="spark://$SPARK_MASTER_IP:$SPARK_MASTER_PORT"
-    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -h ${CURRENT_WORKER} $MASTER_NODE &
+    "$SPARK_HOME/bin/spark-class" org.apache.spark.deploy.worker.Worker -h ${CURRENT_WORKER_IP} $MASTER_NODE &
     export WORKER_PROC_ID="$!"
     trap "stop $WORKER_PROC_ID" SIGUSR1
     wait
