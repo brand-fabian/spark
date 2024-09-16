@@ -12,27 +12,32 @@ if [ $INSTALL_HAIL -eq 0 ]; then
     JAVA_MIN_VERSION="11"
     JAVA_MAX_VERSION="12"
     PYTHON_MIN_VERSION="3.9"
+    PYTHON_MAX_VERSION="3.10"
   elif vercomp "0.2.130" "$HAIL_VERSION"; then
     SPARK_VERSION="3.5.0"
     JAVA_MIN_VERSION="11"
     JAVA_MAX_VERSION="12"
     PYTHON_MIN_VERSION="3.9"
+    PYTHON_MAX_VERSION="3.10"
   elif vercomp "0.2.110" "$HAIL_VERSION"; then
     SPARK_VERSION="3.3.1"
     JAVA_MIN_VERSION="11"
     JAVA_MAX_VERSION="12"
     PYTHON_MIN_VERSION="3.9"
+    PYTHON_MAX_VERSION="3.10"
   else
     SPARK_VERSION="3.1.1"
     JAVA_MIN_VERSION="8"
     JAVA_MAX_VERSION="9"
-    PYTHON_MIN_VERSION="3.6"
+    PYTHON_MIN_VERSION="3.7"
+    PYTHON_MAX_VERSION="3.8"
   fi
 else
   SPARK_VERSION="3.5.0"
   JAVA_MIN_VERSION="11"
   JAVA_MAX_VERSION="12"
   PYTHON_MIN_VERSION="3.9"
+  PYTHON_MAX_VERSION="3.10"
 fi
 
 if [ -z "$SPARK_VERSION" ]; then
@@ -58,13 +63,14 @@ else
     lz4-c \
     gxx_linux-64 \
     make \
-    "python>$PYTHON_MIN_VERSION" \
+    "python>=$PYTHON_MIN_VERSION,<$PYTHON_MAX_VERSION" \
     pip \
     "jinja2==3.0.3" \
     "openjdk>=$JAVA_MIN_VERSION,<$JAVA_MAX_VERSION" \
     rust \
     uv
 
+  conda deactivate
   conda activate "$CONDA_ENV"
   pip3 install jupyterlab "pyspark==$SPARK_VERSION" build
   conda deactivate

@@ -17,8 +17,10 @@ if [ $INSTALL_S3_CONNECTOR -eq 0 ]; then
 fi
 
 function clean {
-  rm -rf "${spark_home}"
-  rm -rf "${HAIL_BASE}"
+  if [ $KEEP_TMP -eq 0 ]; then
+    rm -rf "${spark_home}"
+    rm -rf "${HAIL_BASE}"
+  fi
 }
 
 function stop {
