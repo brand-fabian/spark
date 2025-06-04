@@ -26,7 +26,7 @@ if [ $INSTALL_HAIL -eq 0 ]; then
     PYTHON_MIN_VERSION="3.9"
     PYTHON_MAX_VERSION="3.10"
   else
-    SPARK_VERSION="3.1.1"
+    SPARK_VERSION="3.1.1-foss-2020b-hadoop3"
     JAVA_MIN_VERSION="8"
     JAVA_MAX_VERSION="9"
     PYTHON_MIN_VERSION="3.7"
@@ -53,7 +53,7 @@ if `conda info --envs | grep -qP "^$CONDA_ENV" >/dev/null`; then
   echo "Environment $CONDA_ENV already installed. Skipping."
 else
   echo "Creating environment $CONDA_ENV"
-  conda create -c conda-forge -c bioconda -c defaults -y -n "$CONDA_ENV" \
+  conda create -c conda-forge -c bioconda -y -n "$CONDA_ENV" \
     liblapack \
     lapack \
     lapackpp \
@@ -61,18 +61,20 @@ else
     openblas-devel \
     openblas \
     lz4-c \
-    gxx_linux-64 \
-    make \
     "python>=$PYTHON_MIN_VERSION,<$PYTHON_MAX_VERSION" \
     pip \
-    "jinja2==3.0.3" \
     "openjdk>=$JAVA_MIN_VERSION,<$JAVA_MAX_VERSION" \
     rust \
     uv
 
   conda deactivate
+  
   conda activate "$CONDA_ENV"
-  pip3 install jupyterlab "pyspark==$SPARK_VERSION" build
+  pip3 install \
+    jupyterlab \
+    "pyspark==$SPARK_VERSION" \
+    "jinja2==3.0.3" \
+    build
   conda deactivate
 fi
 

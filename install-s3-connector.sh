@@ -27,7 +27,7 @@ hadoop_client_base=$(basename $hadoop_client_jar)
 hadoop_client_name=${hadoop_client_base%.*}
 hadoop_version=${hadoop_client_name##*-}
 aws_java_sdk_version=$(curl -isSL https://hadoop.apache.org/docs/r$hadoop_version/hadoop-aws/dependency-analysis.html \
-    | grep -A 1 "aws-java-sdk-bundle" \
+    | grep -A 1 "aws-java-sdk" \
     | tail -n 1 \
     | cut -d'>' -f2 \
     | cut -d'<' -f1)
@@ -42,6 +42,12 @@ if [ ! -e "${spark_home}/jars/aws-java-sdk-bundle-$aws_java_sdk_version.jar" ]; 
     curl -sSL \
         https://search.maven.org/remotecontent?filepath=com/amazonaws/aws-java-sdk-bundle/$aws_java_sdk_version/aws-java-sdk-bundle-$aws_java_sdk_version.jar \
         > "${spark_home}/jars/aws-java-sdk-bundle-$aws_java_sdk_version.jar"
+fi
+
+if [ ! -e "${spark_home}/jars/aws-java-sdk-$aws_java_sdk_version.jar" ]; then
+    curl -sSL \
+        https://search.maven.org/remotecontent?filepath=com/amazonaws/aws-java-sdk/$aws_java_sdk_version/aws-java-sdk-$aws_java_sdk_version.jar \
+        > "${spark_home}/jars/aws-java-sdk-$aws_java_sdk_version.jar"
 fi
 
 export SPARK_HOME="${spark_home}"

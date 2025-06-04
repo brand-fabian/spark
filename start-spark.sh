@@ -10,12 +10,6 @@ module load "$CONDA_MODULE"
 test -n "$CONDA_INIT" && eval "$CONDA_INIT"
 conda activate --no-stack "$CONDA_ENV"
 
-
-# Install s3 connector jars
-if [ $INSTALL_S3_CONNECTOR -eq 0 ]; then
-  source "${SCRIPT_DIR}/install-s3-connector.sh"
-fi
-
 function clean {
   if [ $KEEP_TMP -eq 0 ]; then
     rm -rf "${spark_home}"
@@ -44,6 +38,11 @@ if [ "$1" != 'worker' ]; then
 
   module load "$SPARK_MODULE"
 
+  # Install s3 connector jars
+  if [ $INSTALL_S3_CONNECTOR -eq 0 ]; then
+    source "${SCRIPT_DIR}/install-s3-connector.sh"
+  fi
+
   export spark_logs="${spark_home}/logs"
   export remote_tmp="${spark_home}/tmp"
   export spark_tmp="$remote_tmp"
@@ -51,10 +50,10 @@ if [ "$1" != 'worker' ]; then
 
   # Set temporary directory to shared file system
   export TMPDIR="${spark_home}/tmp"
+  export SPARK_LOCAL_DIRS="$(mktemp -d)" 
   export TMPDIR=$(mktemp -d)
 
   export SPARK_WORKER_DIR="$spark_logs"
-  export SPARK_LOCAL_DIRS="$spark_tmp"
   export SPARK_MASTER_PORT=$(find_port ${host})
   export SPARK_MASTER_WEBUI_PORT=$(find_port ${host})
   export SPARK_WORKER_CORES=$SLURM_CPUS_PER_TASK
@@ -80,7 +79,12 @@ else
       export SPARK_MASTER_HOSTNAME="${MASTER_NODE}.${IPOIB_DOMAIN}"
     fi
     export SPARK_MASTER_IP="$(dig +short +search $SPARK_MASTER_HOSTNAME)"
+
+    export TMPDIR="${spark_home}/tmp"
+    export SPARK_LOCAL_DIRS="$(mktemp -d)" 
+    export TMPDIR=$(mktemp -d)
     export SPARK_LOCAL_IP="$SPARK_MASTER_IP"
+    
     export PYSPARK_SUBMIT_ARGS="--master spark://${SPARK_MASTER_IP}:${SPARK_MASTER_PORT} pyspark-shell"
 
     echo "spark://${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}" > "$spark_home/${SLURM_JOB_ID}_spark_master"
@@ -116,6 +120,7 @@ else
     else
       eval "$SCRIPT"
     fi
+
     # After finishing force the job to exit
     sleep 30
     echo -e "job finished, cleaning up spark cluster."
@@ -139,6 +144,10 @@ else
       export CURRENT_WORKER_HOSTNAME="${CURRENT_WORKER_HOSTNAME}.${IPOIB_DOMAIN}"
     fi
     export CURRENT_WORKER_IP="$(dig +short +search $CURRENT_WORKER_HOSTNAME)"
+    
+    export TMPDIR="${spark_home}/tmp"
+    export SPARK_LOCAL_DIRS="$(mktemp -d)" 
+    export TMPDIR="$(mktemp -d)"
     export SPARK_LOCAL_IP="$CURRENT_WORKER_IP"
 
     echo "Running spark-worker on ${CURRENT_WORKER_HOSTNAME} to connect to ${SPARK_MASTER_IP}:${SPARK_MASTER_PORT}"
