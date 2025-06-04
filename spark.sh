@@ -2,7 +2,6 @@
 
 export DEFAULT_SCRATCH_ROOT="${HOME}/scratch"
 export DEFAULT_CONDA_INIT=""
-export DEFAULT_BUILD_MODULES="compiler/GCC devel/make lib/lz4"
 
 function usage {
   echo -e "$0\n\nStart a spark cluster within your slurm allocation.\n"
@@ -12,7 +11,6 @@ function usage {
   echo -e "\t-X, --no-use-srun      If this flag is set, the script will be launched alongside the main spark task on the driver node, otherwise srun is used to start it."
   echo -e "\t--install-s3-connector Install the S3 connector libraries for hadoop and hail if this flag is set (default: false)"
   echo -e "\t--conda-env            Conda environment name to install hail into, if applicable."
-  echo -e "\t--toolchain-module     Easybuild module to load with the correct build tools (gcc, make, etc.; default: ${DEFAULT_BUILD_MODULES})"
   echo -e "\t--conda-module         Conda easybuild module name (default: Miniconda3)."
   echo -e "\t--spark-module         Name of the spark lmod module to use."
   echo -e "\t--spark-version        Spark version to use to create the cluster (default: auto-detect)."
@@ -52,7 +50,6 @@ export USE_SRUN=0
 export CONDA_INIT="$DEFAULT_CONDA_INIT"
 export INSTALL_S3_CONNECTOR=1
 export KEEP_TMP=1
-export BUILD_MODULES="${DEFAULT_BUILD_MODULES}"
 
 eval set -- "$options"
 while true; do
@@ -70,10 +67,6 @@ while true; do
     --conda-env)
       shift
       CONDA_ENV="$1"
-      ;;
-    --toolchain-module)
-      shift
-      BUILD_MODULES="$1"
       ;;
     --conda-module)
       shift

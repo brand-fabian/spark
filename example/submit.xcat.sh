@@ -15,10 +15,11 @@
 #
 # Usage: `sbatch <submit.sh>`
 SCRIPT_DIR=$(dirname $(scontrol show job $SLURM_JOB_ID | grep "Command=" | cut -d'=' -f2))
-bash "${SCRIPT_DIR}/../spark.sh" --hail-version 0.2.129 \
+bash "${SCRIPT_DIR}/../spark.sh" --hail-version 0.2.133 \
     --spark-interface "ib0" \
-    --spark-version "3.3.1" \
+    --spark-version "3.5.0" \
     --spark-module "devel/Spark" \
+    --conda-env "hail_v133.py39" \
     --conda-module "lang/Miniconda3" \
     --scratch-dir "/home/brand/scratch" \
     --conda-init "" \
